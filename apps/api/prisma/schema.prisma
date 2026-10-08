@@ -1,0 +1,68 @@
+// Banco SQLite (ver README do apps/api para a justificativa da troca de stack
+// em relação ao PostgreSQL do brief original).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Visitor {
+  id            String   @id @default(uuid())
+  fullName      String
+  email         String
+  phone         String
+  establishment String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  consents     VisitorConsent[]
+  wifiSessions WiFiSession[]
+
+  @@unique([email, phone])
+}
+
+// Cada aceite/recusa é seu próprio registro imutável (nunca sobrescrito) — é o que
+// torna o consentimento auditável (Seção 14 do brief: finalidade, versão, data,
+// origem, revogação).
+model VisitorConsent {
+  id        String    @id @default(uuid())
+  visitorId String
+  visitor   Visitor   @relation(fields: [visitorId], references: [id])
+  purpose   String // "terms" | "marketing"
+  granted   Boolean
+  version   String // versão do texto aceito/recusado
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([visitorId, purpose])
+}
+
+model WiFiSession {
+  id         String   @id @default(uuid())
+  visitorId  String
+  visitor    Visitor  @relation(fields: [visitorId], references: [id])
+  status     String // ver WIFI_SESSION_STATUSES em packages/shared
+  networkName String
+  clientMac  String?
+  apMac      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attempts AuthenticationAttempt[]
+
+  @@index([visitorId])
+}
+
+model AuthenticationAttempt {
+  id          String      @id @default(uuid())
+  sessionId   String
+  session     WiFiSession @relation(fields: [sessionId], references: [id])
+  status      String // ver WIFI_SESSION_STATUSES
+  errorReason String? // ver CAPTIVE_PORTAL_ERROR_REASONS, quando status != AUTHORIZED
+  createdAt   DateTime    @default(now())
+
+  @@index([sessionId])
+}
