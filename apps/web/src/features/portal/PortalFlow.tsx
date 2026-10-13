@@ -1,11 +1,18 @@
+import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { PortalShell } from "./PortalShell";
+import { PortalIntro } from "./PortalIntro";
 import { usePortalFlow } from "./usePortalFlow";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { RegistrationScreen } from "./screens/RegistrationScreen";
 import { ConnectingScreen } from "./screens/ConnectingScreen";
 import { ConnectedScreen } from "./screens/ConnectedScreen";
 import { ErrorScreen } from "./screens/ErrorScreen";
+
+function prefersReducedMotion() {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 /**
  * Orquestra as 5 telas do captive portal `/wifi` (Seção 4). Hoje roda inteiramente
@@ -14,24 +21,31 @@ import { ErrorScreen } from "./screens/ErrorScreen";
  */
 export function PortalFlow() {
   const flow = usePortalFlow();
+  // A marca abre o portal toda vez que o cliente entra na rede (cada carregamento de
+  // /wifi). Com "reduzir movimento" ligado, a abertura é só a tela estática da logo.
+  const [showIntro, setShowIntro] = useState(true);
+  const [staticIntro] = useState(prefersReducedMotion);
+
+  const finishIntro = () => setShowIntro(false);
 
   return (
     <PortalShell>
       <AnimatePresence mode="wait">
-        {flow.screen === "welcome" && (
+        {showIntro && <PortalIntro key="intro" onComplete={finishIntro} staticOnly={staticIntro} />}
+        {!showIntro && flow.screen === "welcome" && (
           <WelcomeScreen key="welcome" onConnect={flow.goToRegistration} />
         )}
-        {flow.screen === "registration" && (
+        {!showIntro && flow.screen === "registration" && (
           <RegistrationScreen
             key="registration"
             onBack={flow.goToWelcome}
             onSubmit={flow.submitRegistration}
           />
         )}
-        {flow.screen === "connecting" && (
+        {!showIntro && flow.screen === "connecting" && (
           <ConnectingScreen key="connecting" currentStep={flow.currentStep} />
         )}
-        {flow.screen === "connected" && (
+        {!showIntro && flow.screen === "connected" && (
           <ConnectedScreen
             key="connected"
             networkName={flow.networkName}
@@ -41,7 +55,7 @@ export function PortalFlow() {
             onBrowse={() => {}}
           />
         )}
-        {flow.screen === "error" && flow.errorReason && (
+        {!showIntro && flow.screen === "error" && flow.errorReason && (
           <ErrorScreen key="error" reason={flow.errorReason} onRetry={flow.retryConnection} />
         )}
       </AnimatePresence>

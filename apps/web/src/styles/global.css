@@ -23,3 +23,31 @@
     @apply outline-none ring-2 ring-brand-400 ring-offset-2 ring-offset-surface;
   }
 }
+
+@layer utilities {
+  /**
+   * 100dvh com fallback para navegadores que não entendem a unidade (a
+   * declaração inválida é ignorada e a anterior permanece) — evita o salto de
+   * layout causado por 100vh em navegadores de captive portal com barra de
+   * endereço retrátil.
+   */
+  .h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .portal-safe-padding {
+    padding-top: max(2.5rem, env(safe-area-inset-top));
+    padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Vídeo da intro é 9:16: preenche telas em retrato, mas em paisagem (tablet/desktop)
+     cortaria o logo — ali ele encaixa inteiro sobre o mesmo navy. */
+  /* Há versão retrato e paisagem (escolhida por <source media>); cover em qualquer tela
+     mantém o fundo do vídeo emendado no gradiente do login, sem tarjas. */
+  .portal-intro-video {
+    object-fit: cover;
+  }
+}

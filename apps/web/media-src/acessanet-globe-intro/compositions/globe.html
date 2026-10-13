@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <!-- Globo 3D (Three.js) da intro AcessaNet. Todo o estado visual é função pura do tempo
+         HyperFrames (evento hf-seek): nada de relógio, nada de loop livre, nada de rede.
+         O fundo do login é desenhado no próprio WebGL para o crossfade final ser invisível. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden;
+        }
+        #gl-canvas {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+      </style>
+
+      <div data-hf-id="hf-4rhu" id="root" data-composition-id="globe" data-width="1080" data-height="1920" data-duration="4">
+        <canvas data-hf-id="hf-gh14" id="gl-canvas"></canvas>
+      </div>
+
+      <script type="module">
+        import * as THREE from "three";
+        import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+        import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+        import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+        import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+        // ---------- utilidades determinísticas ----------
+        let seed = 0xacce55;
+        const rand = () => {
+          seed = (seed + 0x6d2b79f5) | 0;
+          let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        const clamp01 = (x) => Math.min(1, Math.max(0, x));
+        const ramp = (t, a, b) => clamp01((t - a) / (b - a));
+        const smooth = (x) => x * x * (3 - 2 * x);
+        const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+        const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+        // Integral numérica de passo fixo: posição = ∫ velocidade(t) dt, idêntica em qualquer seek.
+        const integrate = (fn, t, steps = 240) => {
+          if (t <= 0) return 0;
+          const h = t / steps;
+          let s = 0.5 * (fn(0) + fn(t));
+          for (let i = 1; i < steps; i++) s += fn(i * h);
+          return s * h;
+        };
+        const DEG = Math.PI / 180;
+        const latLon = (lat, lon, r = 1) => {
+          const p = lat * DEG, l = lon * DEG;
+          return new THREE.Vector3(Math.cos(p) * Math.sin(l) * r, Math.sin(p) * r, Math.cos(p) * Math.cos(l) * r);
+        };
+
+        // ---------- renderer ----------
+        const canvas = document.getElementById("gl-canvas");
+        const W = canvas.clientWidth || window.innerWidth;
+        const H = canvas.clientHeight || window.innerHeight;
+        const portrait = H > W;
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(1);
+        renderer.setSize(W, H, false);
+        renderer.setClearColor(0x000000, 1);
+
+        const scene = new THREE.Scene();
+        const FOV = 28;
+        const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 100);
+        const tanH = Math.tan((FOV / 2) * DEG);
+        // Enquadramento: no vertical o globo ocupa ~78% da largura; no horizontal ~64% da altura.
+        const FIT = portrait ? 1 / (0.78 * tanH * (W / H)) : 1 / (0.64 * tanH);
+
+        // ---------- fundo = gradiente exato do PortalShell (sRGB → linear para o OutputPass) ----------
+        const bgMat = new THREE.ShaderMaterial({
+          depthWrite: false,
+          depthTest: false,
+          uniforms: { uRes: { value: new THREE.Vector2(W, H) }, uGlow: { value: 0 } },
+          vertexShader: `void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+          fragmentShader: `
+            uniform vec2 uRes; uniform float uGlow;
+            vec3 toLinear(vec3 c){ return mix(c/12.92, pow((c+0.055)/1.055, vec3(2.4)), step(0.04045, c)); }
+            float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+            void main(){
+              vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+              vec2 uv = px / uRes;
+              vec3 a = vec3(6.,21.,45.)/255., b = vec3(10.,34.,80.)/255.;
+              vec3 col = uv.y < 0.55 ? mix(a, b, uv.y/0.55) : mix(b, a, (uv.y-0.55)/0.45);
+              // radial-gradient(45% 35% at 85% 85%, rgba(147,197,253,.08) → 0 em 70%)
+              float d2 = length((px - uRes*vec2(0.85,0.85)) / (uRes*vec2(0.45,0.35)));
+              col = mix(col, vec3(147.,197.,253.)/255., 0.08 * clamp(1.0 - d2/0.7, 0.0, 1.0));
+              // radial-gradient(70% 55% at 50% 0%, rgba(37,125,255,.22) → 0 em 70%)
+              float d1 = length((px - uRes*vec2(0.5,0.0)) / (uRes*vec2(0.70,0.55)));
+              col = mix(col, vec3(37.,125.,255.)/255., 0.22 * clamp(1.0 - d1/0.7, 0.0, 1.0));
+              // Brilho central sutil da cena 1
+              float dc = length((px - uRes*0.5) / uRes.x);
+              col += vec3(0.07,0.25,0.6) * uGlow * exp(-dc*dc*9.0);
+              col += (hash(px) - 0.5) / 255.0; // dither contra banding
+              gl_FragColor = vec4(toLinear(col), 1.0);
+            }`,
+        });
+        const bg = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
+        bg.frustumCulled = false;
+        bg.renderOrder = -10;
+        scene.add(bg);
+
+        // ---------- globo ----------
+        const tilt = new THREE.Group();
+        tilt.rotation.z = 0.32;
+        tilt.rotation.x = 0.18;
+        scene.add(tilt);
+        const spin = new THREE.Group();
+        tilt.add(spin);
+
+        // O núcleo surge por transparência (não por brilho): com brilho 0 ele seria um disco preto.
+        const coreMat = new THREE.ShaderMaterial({
+          transparent: true,
+          uniforms: {
+            uBright: { value: 0 },
+            uAlpha: { value: 0 },
+            uLight: { value: new THREE.Vector3(-0.55, 0.6, 0.6).normalize() },
+          },
+          vertexShader: `
+            varying vec3 vN; varying vec3 vV;
+            void main(){
+              vec4 mv = modelViewMatrix * vec4(position,1.0);
+              vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `
+            uniform float uBright; uniform float uAlpha; uniform vec3 uLight;
+            varying vec3 vN; varying vec3 vV;
+            void main(){
+              vec3 n = normalize(vN);
+              float fres = pow(1.0 - max(dot(n, vV), 0.0), 2.6);
+              float lit = smoothstep(-0.2, 1.0, dot(n, uLight));
+              vec3 deep = vec3(0.0015, 0.005, 0.014);
+              vec3 day  = vec3(0.006, 0.03, 0.1);
+              vec3 rim  = vec3(0.1, 0.45, 1.0);
+              vec3 col = mix(deep, day, lit) + rim * fres * (0.12 + 0.3*lit);
+              gl_FragColor = vec4(col * uBright, uAlpha);
+            }`,
+        });
+        const core = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 96), coreMat);
+        core.renderOrder = -1; // desenha antes das trilhas aditivas para ocultar o que passa atrás
+        spin.add(core);
+
+        const atmoMat = new THREE.ShaderMaterial({
+          uniforms: { uBright: { value: 0 } },
+          side: THREE.BackSide,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          depthWrite: false,
+          vertexShader: `
+            varying vec3 vN; varying vec3 vV;
+            void main(){
+              vec4 mv = modelViewMatrix * vec4(position,1.0);
+              vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `
+            uniform float uBright; varying vec3 vN; varying vec3 vV;
+            void main(){
+              float k = pow(clamp(-dot(vN, vV) / 0.52, 0.0, 1.0), 2.4);
+              vec3 col = mix(vec3(0.05,0.22,0.85), vec3(0.3,0.72,1.0), k);
+              gl_FragColor = vec4(col * k * 0.55 * uBright, 1.0);
+            }`,
+        });
+        const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.14, 96, 64), atmoMat);
+        tilt.add(atmo);
+
+        // Continentes em matriz de pontos (Natural Earth 110m, pré-calculado em assets/land-dots.js).
+        const LAND = window.ACESSANET_LAND_DOTS || [];
+        const FRONT = latLon(-12, 6); // ponto de onde a "revelação" dos pontos se espalha
+        const landPos = new Float32Array((LAND.length / 2) * 3);
+        const landPhase = new Float32Array(LAND.length / 2);
+        const landDelay = new Float32Array(LAND.length / 2);
+        for (let i = 0; i < LAND.length / 2; i++) {
+          const v = latLon(LAND[i * 2 + 1], LAND[i * 2], 1.004);
+          landPos.set([v.x, v.y, v.z], i * 3);
+          landPhase[i] = rand() * Math.PI * 2;
+          landDelay[i] = (1 - v.clone().normalize().dot(FRONT)) * 0.5 * 0.8 + rand() * 0.2;
+        }
+        const landGeo = new THREE.BufferGeometry();
+        landGeo.setAttribute("position", new THREE.BufferAttribute(landPos, 3));
+        landGeo.setAttribute("aPhase", new THREE.BufferAttribute(landPhase, 1));
+        landGeo.setAttribute("aDelay", new THREE.BufferAttribute(landDelay, 1));
+        const landMat = new THREE.ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          uniforms: { uTime: { value: 0 }, uReveal: { value: 0 }, uBright: { value: 0 }, uSize: { value: portrait ? 7.0 : 6.4 } },
+          vertexShader: `
+            attribute float aPhase; attribute float aDelay;
+            uniform float uTime; uniform float uReveal; uniform float uSize;
+            varying float vA; varying float vF;
+            void main(){
+              vec4 mv = modelViewMatrix * vec4(position,1.0);
+              vec3 n = normalize(normalMatrix * position);
+              vF = dot(n, normalize(-mv.xyz));
+              float rv = smoothstep(aDelay, aDelay + 0.18, uReveal);
+              vA = rv * (0.72 + 0.28 * sin(uTime * 2.6 + aPhase));
+              gl_PointSize = uSize * (4.2 / -mv.z) * (0.6 + 0.4 * rv);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `
+            uniform float uBright; varying float vA; varying float vF;
+            void main(){
+              float d = length(gl_PointCoord - 0.5);
+              float a = smoothstep(0.5, 0.15, d) * vA * smoothstep(0.0, 0.35, vF);
+              vec3 col = mix(vec3(0.08,0.42,0.9), vec3(0.55,0.88,1.0), smoothstep(0.2, 0.95, vF));
+              gl_FragColor = vec4(col * a * 1.7 * uBright, 1.0);
+            }`,
+        });
+        spin.add(new THREE.Points(landGeo, landMat));
+
+        // ---------- trilhas de luz (tubos com shader de rastro) ----------
+        // u = posição ao longo do tubo (uv.x). uHead = cabeça do rastro, uTail = comprimento.
+        const trailMat = (color, opts = {}) =>
+          new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            uniforms: {
+              uColor: { value: new THREE.Color(color) },
+              uHeads: { value: new THREE.Vector4(-9, -9, -9, -9) },
+              uTail: { value: opts.tail ?? 0.12 },
+              uBase: { value: opts.base ?? 0.0 },
+              uDraw: { value: opts.draw ?? 1.0 },
+              uAlpha: { value: 0 },
+              uLoop: { value: opts.loop ? 1 : 0 },
+            },
+            vertexShader: `
+              varying float vU; varying float vF;
+              void main(){
+                vU = uv.x;
+                vec4 mv = modelViewMatrix * vec4(position,1.0);
+                gl_Position = projectionMatrix * mv;
+              }`,
+            fragmentShader: `
+              uniform vec3 uColor; uniform vec4 uHeads; uniform float uTail; uniform float uBase;
+              uniform float uDraw; uniform float uAlpha; uniform float uLoop;
+              varying float vU;
+              float trail(float head){
+                float d = head - vU;
+                if (uLoop > 0.5) d = fract(d);
+                if (d < 0.0 || d > uTail) return 0.0;
+                float k = 1.0 - d / uTail;
+                return k * k * k + 2.6 * exp(-d * 260.0);
+              }
+              void main(){
+                float drawn = smoothstep(uDraw, uDraw - 0.015, vU);
+                float t = trail(uHeads.x) + trail(uHeads.y) + trail(uHeads.z) + trail(uHeads.w);
+                float a = (uBase * drawn + t) * uAlpha;
+                vec3 col = mix(uColor, vec3(1.0), clamp(t - 0.9, 0.0, 1.0) * 0.8);
+                gl_FragColor = vec4(col * a, 1.0);
+              }`,
+          });
+
+        // Órbitas inclinadas ao redor do globo, com cometas de "fibra óptica".
+        const ORBITS = [
+          { r: 1.34, rx: 1.22, rz: 0.3, speed: 0.55, heads: [0.0, 0.5], color: 0x5cc8ff, width: 0.0042, draw: [0.15, 1.05] },
+          { r: 1.52, rx: 1.75, rz: -0.55, speed: -0.42, heads: [0.2, 0.7], color: 0x257dff, width: 0.0038, draw: [0.3, 1.25] },
+          { r: 1.72, rx: 1.42, rz: 0.95, speed: 0.33, heads: [0.35, 0.85], color: 0x5cc8ff, width: 0.0034, draw: [0.45, 1.45] },
+        ];
+        const orbits = ORBITS.map((o) => {
+          const pts = [];
+          for (let i = 0; i <= 256; i++) {
+            const a = (i / 256) * Math.PI * 2;
+            pts.push(new THREE.Vector3(Math.cos(a) * o.r, 0, Math.sin(a) * o.r));
+          }
+          const curve = new THREE.CatmullRomCurve3(pts, true);
+          const mat = trailMat(o.color, { tail: 0.22, base: 0.16, loop: true });
+          const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 512, o.width, 6, true), mat);
+          mesh.rotation.x = o.rx;
+          mesh.rotation.z = o.rz;
+          tilt.add(mesh);
+          return Object.assign({ mat }, o);
+        });
+
+        // Rastros de dados em alta velocidade, rente à superfície (grandes círculos).
+        const STREAKS = [];
+        for (let i = 0; i < 12; i++) {
+          STREAKS.push({
+            axis: new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize(),
+            r: 1.012 + rand() * 0.05,
+            speed: (0.7 + rand() * 0.75) * (rand() < 0.5 ? -1 : 1),
+            offset: rand(),
+            start: i < 5 ? 0.85 + i * 0.12 : 1.75 + (i - 5) * 0.11,
+            color: rand() < 0.5 ? 0x5cc8ff : 0x9fdcff,
+          });
+        }
+        const streaks = STREAKS.map((s) => {
+          const ref = Math.abs(s.axis.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+          const e1 = new THREE.Vector3().crossVectors(s.axis, ref).normalize();
+          const e2 = new THREE.Vector3().crossVectors(s.axis, e1).normalize();
+          const pts = [];
+          for (let i = 0; i <= 200; i++) {
+            const a = (i / 200) * Math.PI * 2;
+            pts.push(e1.clone().multiplyScalar(Math.cos(a) * s.r).add(e2.clone().multiplyScalar(Math.sin(a) * s.r)));
+          }
+          const mat = trailMat(s.color, { tail: 0.16, base: 0.0, loop: true });
+          const mesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 400, 0.0036, 5, true), mat);
+          spin.add(mesh);
+          return Object.assign({ mat }, s);
+        });
+
+        // Conexões entre continentes: arcos de grande círculo elevados, desenhados e com pacotes.
+        const CITY = {
+          saopaulo: [-23.5, -46.6], fortaleza: [-3.7, -38.5], santiago: [-33.4, -70.6], bogota: [4.7, -74.1],
+          miami: [25.8, -80.2], newyork: [40.7, -74.0], mexico: [19.4, -99.1], lisbon: [38.7, -9.1],
+          london: [51.5, -0.1], madrid: [40.4, -3.7], lagos: [6.5, 3.4], capetown: [-33.9, 18.4],
+          dubai: [25.2, 55.3], luanda: [-8.8, 13.2], dakar: [14.7, -17.4], buenosaires: [-34.6, -58.4],
+        };
+        const ARCS = [
+          ["saopaulo", "lisbon", 0.95], ["fortaleza", "miami", 1.08], ["newyork", "london", 1.2], ["saopaulo", "luanda", 1.32],
+          ["fortaleza", "dakar", 1.62], ["bogota", "madrid", 1.82], ["miami", "saopaulo", 1.9], ["lagos", "london", 1.98],
+          ["buenosaires", "capetown", 2.06], ["santiago", "mexico", 2.14], ["lisbon", "newyork", 2.22], ["dakar", "lagos", 2.3],
+          ["madrid", "dubai", 2.38], ["saopaulo", "fortaleza", 2.44], ["capetown", "luanda", 2.5],
+        ];
+        const arcs = ARCS.map(([a, b, start], i) => {
+          const p0 = latLon(...CITY[a]), p1 = latLon(...CITY[b]);
+          const ang = p0.angleTo(p1);
+          const lift = 0.06 + 0.32 * (ang / Math.PI);
+          const pts = [];
+          for (let k = 0; k <= 64; k++) {
+            const s = k / 64;
+            const q = new THREE.Quaternion().setFromUnitVectors(p0, p1);
+            const slerp = p0.clone().applyQuaternion(new THREE.Quaternion().slerp(q, s));
+            pts.push(slerp.multiplyScalar(1.003 + lift * Math.sin(Math.PI * s)));
+          }
+          const mat = trailMat(i % 3 === 0 ? 0x9fdcff : 0x5cc8ff, { tail: 0.2, base: 0.38, draw: 0 });
+          const mesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, 0.0042, 5, false), mat);
+          spin.add(mesh);
+          return { mat, start, phase: rand(), from: a, to: b };
+        });
+
+        // Nós nas cidades: ponto brilhante + anel de pulso quando um arco chega.
+        const cityKeys = Object.keys(CITY);
+        const nodeArrive = cityKeys.map((k) => {
+          const ts = [];
+          arcs.forEach((a) => { if (a.from === k) ts.push(a.start); if (a.to === k) ts.push(a.start + 0.42); });
+          return ts.length ? Math.min(...ts) : 9;
+        });
+        const nodeGeo = new THREE.BufferGeometry();
+        nodeGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(cityKeys.flatMap((k) => latLon(...CITY[k], 1.006).toArray())), 3));
+        nodeGeo.setAttribute("aT0", new THREE.BufferAttribute(new Float32Array(nodeArrive), 1));
+        const nodeMat = new THREE.ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          uniforms: { uTime: { value: 0 }, uAlpha: { value: 1 }, uSize: { value: portrait ? 64 : 58 } },
+          vertexShader: `
+            attribute float aT0; uniform float uTime; uniform float uSize;
+            varying float vAge; varying float vF;
+            void main(){
+              vec4 mv = modelViewMatrix * vec4(position,1.0);
+              vF = dot(normalize(normalMatrix * position), normalize(-mv.xyz));
+              vAge = uTime - aT0;
+              gl_PointSize = uSize * (4.2 / -mv.z);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `
+            uniform float uAlpha; varying float vAge; varying float vF;
+            void main(){
+              if (vAge < 0.0) discard;
+              float d = length(gl_PointCoord - 0.5) * 2.0;
+              float on = smoothstep(0.0, 0.12, vAge);
+              float dotA = smoothstep(0.26, 0.08, d);
+              float ringR = fract(vAge * 0.9);
+              float ring = smoothstep(0.07, 0.0, abs(d - ringR)) * (1.0 - ringR);
+              float a = (dotA * 1.3 + ring * 0.9) * on * uAlpha * smoothstep(0.05, 0.4, vF);
+              gl_FragColor = vec4(mix(vec3(0.36,0.78,1.0), vec3(1.0), dotA) * a, 1.0);
+            }`,
+        });
+        spin.add(new THREE.Points(nodeGeo, nodeMat));
+
+        // Partículas no espaço (camada de profundidade), posições de semente fixa.
+        const PN = 320;
+        const pPos = new Float32Array(PN * 3), pPhase = new Float32Array(PN);
+        for (let i = 0; i < PN; i++) {
+          const v = new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize();
+          v.multiplyScalar(1.35 + Math.pow(rand(), 0.7) * 3.0);
+          pPos.set([v.x, v.y * (portrait ? 1.7 : 1.0), v.z], i * 3);
+          pPhase[i] = rand() * 6.28;
+        }
+        const partGeo = new THREE.BufferGeometry();
+        partGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+        partGeo.setAttribute("aPhase", new THREE.BufferAttribute(pPhase, 1));
+        const partMat = new THREE.ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          uniforms: { uTime: { value: 0 }, uAlpha: { value: 0 } },
+          vertexShader: `
+            attribute float aPhase; uniform float uTime; varying float vA;
+            void main(){
+              vec4 mv = modelViewMatrix * vec4(position,1.0);
+              vA = 0.55 + 0.45 * sin(uTime * 1.8 + aPhase);
+              gl_PointSize = (2.0 + 1.6 * fract(aPhase * 7.13)) * (6.0 / -mv.z);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `
+            uniform float uAlpha; varying float vA;
+            void main(){
+              float d = length(gl_PointCoord - 0.5);
+              float a = smoothstep(0.5, 0.1, d) * vA * uAlpha * 0.7;
+              gl_FragColor = vec4(vec3(0.55,0.82,1.0) * a, 1.0);
+            }`,
+        });
+        const particles = new THREE.Points(partGeo, partMat);
+        scene.add(particles);
+
+        // ---------- pós-processamento: bloom determinístico (sem histórico entre frames) ----------
+        const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: 4 });
+        const composer = new EffectComposer(renderer, rt);
+        composer.setPixelRatio(1);
+        composer.setSize(W, H);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.62, 0.42, 0.42);
+        composer.addPass(bloom);
+        composer.addPass(new OutputPass());
+
+        // ---------- direção (tudo em função de t) ----------
+        // Velocidade de rotação: constante até 2,8 s e desacelera na cena 4.
+        const spinSpeed = (t) => 0.3 - 0.14 * smooth(ramp(t, 2.6, 3.6));
+        // Intensidade dos fluxos: sobe na cena 3, desacelera na cena 4.
+        const flowSpeed = (t) => 1 + 0.75 * smooth(ramp(t, 1.7, 2.6)) - 1.0 * smooth(ramp(t, 2.7, 3.6));
+        const SPIN0 = 0.2; // Brasil/Atlântico de frente para a câmera na cena 4
+
+        function renderAt(t) {
+          const emerge = easeOutCubic(ramp(t, 0.1, 1.05));
+          const dim = 1 - 0.55 * smooth(ramp(t, 2.72, 3.2)); // a marca entra na frente
+          const bright = emerge * dim;
+          const flowPos = integrate(flowSpeed, t, 160);
+
+          // Câmera: aproximação lenta e contínua, levemente acima do equador.
+          const push = 1.42 - 0.4 * easeOutCubic(ramp(t, 0, 3.4)) - 0.03 * ramp(t, 3.4, 4);
+          const dist = FIT * push;
+          const yaw = -0.1 + 0.08 * easeInOut(ramp(t, 0, 4));
+          camera.position.set(Math.sin(yaw) * dist, dist * 0.1, Math.cos(yaw) * dist);
+          camera.lookAt(0, 0, 0);
+
+          spin.rotation.y = SPIN0 + integrate(spinSpeed, t, 160);
+          const s = 0.9 + 0.1 * emerge;
+          tilt.scale.setScalar(s);
+
+          bgMat.uniforms.uGlow.value = smooth(ramp(t, 0.0, 0.55)) * (1 - 0.6 * smooth(ramp(t, 0.8, 2.0)));
+          coreMat.uniforms.uBright.value = dim * (0.35 + 0.65 * emerge);
+          coreMat.uniforms.uAlpha.value = smooth(ramp(t, 0.05, 0.85));
+          atmoMat.uniforms.uBright.value = bright * (0.85 + 0.15 * Math.sin(t * 1.6));
+          landMat.uniforms.uTime.value = t;
+          landMat.uniforms.uReveal.value = 1.2 * easeOutCubic(ramp(t, 0.2, 1.6));
+          landMat.uniforms.uBright.value = bright;
+
+          orbits.forEach((o) => {
+            const d = easeOutCubic(ramp(t, o.draw[0], o.draw[1]));
+            o.mat.uniforms.uDraw.value = 1.02 * d;
+            o.mat.uniforms.uAlpha.value = dim * (0.25 + 0.75 * smooth(ramp(t, 0.8, 1.4)));
+            const h = o.speed * flowPos;
+            o.mat.uniforms.uHeads.value.set(h + o.heads[0], h + o.heads[1], -9, -9);
+            o.mat.uniforms.uTail.value = 0.12 + 0.1 * smooth(ramp(t, 1.7, 2.6));
+          });
+
+          streaks.forEach((st) => {
+            const on = smooth(ramp(t, st.start, st.start + 0.2));
+            st.mat.uniforms.uAlpha.value = on * dim * 1.25;
+            st.mat.uniforms.uHeads.value.set(st.offset + st.speed * (flowPos - st.start), -9, -9, -9);
+          });
+
+          arcs.forEach((a) => {
+            const p = ramp(t, a.start, a.start + 0.45);
+            a.mat.uniforms.uDraw.value = 1.03 * easeOutCubic(p);
+            a.mat.uniforms.uAlpha.value = dim * (p > 0 ? 1 : 0);
+            // Cabeça de desenho + pacotes que voltam a correr depois do arco pronto.
+            const head = 1.03 * easeOutCubic(p);
+            const pk = t > a.start + 0.45 ? (flowPos * 0.9 + a.phase) % 1.25 : -9;
+            a.mat.uniforms.uHeads.value.set(p < 1 ? head : -9, pk, -9, -9);
+          });
+
+          nodeMat.uniforms.uTime.value = t;
+          nodeMat.uniforms.uAlpha.value = dim;
+
+          particles.rotation.y = 0.05 * t;
+          partMat.uniforms.uTime.value = t;
+          partMat.uniforms.uAlpha.value = smooth(ramp(t, 0.05, 0.7)) * (1 - 0.35 * smooth(ramp(t, 2.8, 3.3)));
+
+          composer.render();
+        }
+
+        window.addEventListener("hf-seek", (e) => renderAt(e.detail.time));
+        renderAt(window.__hfThreeTime || 0);
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <!-- AcessaNet — abertura do captive portal (horizontal, 1920×1080, 3 s).
+         As camadas em compositions/ são as mesmas nas duas versões: tudo é ancorado no
+         centro do quadro em px, e as duas telas têm 1920 px no lado maior. -->
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #06152d; }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        /* Mesmo fundo do PortalShell: o último frame emenda na tela de login. */
+        background:
+          radial-gradient(70% 55% at 50% 0%, rgba(37, 125, 255, 0.22) 0%, rgba(6, 21, 45, 0) 70%),
+          radial-gradient(45% 35% at 85% 85%, rgba(147, 197, 253, 0.08) 0%, rgba(6, 21, 45, 0) 70%),
+          linear-gradient(180deg, #06152d 0%, #0a2250 55%, #06152d 100%);
+      }
+      .layer { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-tnon" id="root" data-composition-id="acessanet-intro" data-start="0" data-duration="3" data-fps="60" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-bpmt" id="atmosphere" class="layer" data-composition-id="atmosphere" data-composition-src="compositions/atmosphere.html" data-start="0" data-duration="3" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div data-hf-id="hf-uu5i" id="energy" class="layer" data-composition-id="energy" data-composition-src="compositions/energy.html" data-start="0" data-duration="3" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div data-hf-id="hf-swbc" id="brand" class="layer" data-composition-id="brand" data-composition-src="compositions/brand.html" data-start="0" data-duration="3" data-track-index="2" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    </div>
+    <script>
+      // A raiz só hospeda as camadas; cada sub-composição registra a própria timeline.
+      window.__timelines["acessanet-intro"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>
