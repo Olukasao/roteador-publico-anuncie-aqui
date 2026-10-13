@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <!-- Camada de energia: ponto luminoso, feixes que cruzam o quadro, feixes que convergem,
+         linha de horizonte, ondas de conexão e raios de rede. Tudo ancorado no centro da marca
+         (50%, 50% - 60px). -->
+  </head>
+  <body>
+    <template>
+      <style>
+        /* A camada sempre preenche o host (vertical ou horizontal): o runtime carimba o
+           data-width/height deste arquivo na raiz, então o tamanho é forçado aqui. */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden;
+        }
+        #en-anchor {
+          position: absolute;
+          left: 50%;
+          top: calc(50% - 60px);
+          width: 0;
+          height: 0;
+        }
+        /* Pivôs giram por CSS; GSAP só anima o filho (sem conflito de transform). */
+        .en-pivot {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 0;
+          height: 0;
+        }
+        .en-beam {
+          position: absolute;
+          height: 2px;
+          border-radius: 2px;
+          background: linear-gradient(
+            90deg,
+            rgba(147, 197, 253, 0) 0%,
+            rgba(147, 197, 253, 0.5) 72%,
+            rgba(255, 255, 255, 0.95) 100%
+          );
+          opacity: 0;
+        }
+        /* Halo: o rastro alongado e desfocado é o motion blur simulado do feixe. */
+        .en-beam::after {
+          content: "";
+          position: absolute;
+          left: 18%;
+          right: -6px;
+          top: -7px;
+          bottom: -7px;
+          border-radius: 999px;
+          background: linear-gradient(
+            90deg,
+            rgba(37, 125, 255, 0) 0%,
+            rgba(37, 125, 255, 0.45) 80%,
+            rgba(147, 197, 253, 0.7) 100%
+          );
+          filter: blur(6px);
+        }
+        .en-cross {
+          left: -330px;
+          width: 660px;
+        }
+        .en-conv {
+          left: -760px;
+          width: 760px;
+          top: -1px;
+          transform-origin: 100% 50%;
+        }
+
+        #en-bloom {
+          position: absolute;
+          left: -260px;
+          top: -260px;
+          width: 520px;
+          height: 520px;
+          border-radius: 50%;
+          background: radial-gradient(
+            closest-side,
+            rgba(214, 232, 255, 0.85) 0%,
+            rgba(37, 125, 255, 0.45) 30%,
+            rgba(17, 102, 189, 0.12) 62%,
+            rgba(6, 21, 45, 0) 100%
+          );
+          opacity: 0;
+        }
+        #en-core {
+          position: absolute;
+          left: -6px;
+          top: -6px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #ffffff;
+          box-shadow:
+            0 0 10px 3px rgba(214, 232, 255, 0.95),
+            0 0 34px 12px rgba(37, 125, 255, 0.7),
+            0 0 90px 30px rgba(17, 102, 189, 0.4);
+          opacity: 0;
+        }
+
+        #en-horizon {
+          position: absolute;
+          left: -760px;
+          top: -1px;
+          width: 1520px;
+          height: 2px;
+          background: linear-gradient(
+            90deg,
+            rgba(147, 197, 253, 0) 0%,
+            rgba(147, 197, 253, 0.55) 30%,
+            #ffffff 50%,
+            rgba(147, 197, 253, 0.55) 70%,
+            rgba(147, 197, 253, 0) 100%
+          );
+          box-shadow: 0 0 16px 2px rgba(37, 125, 255, 0.55);
+          opacity: 0;
+        }
+
+        .en-wave {
+          position: absolute;
+          left: -700px;
+          top: -700px;
+          width: 1400px;
+          height: 1400px;
+          border-radius: 50%;
+          border: 2px solid rgba(147, 197, 253, 0.8);
+          box-shadow:
+            0 0 22px rgba(37, 125, 255, 0.45),
+            inset 0 0 22px rgba(37, 125, 255, 0.3);
+          opacity: 0;
+        }
+
+        .en-ray {
+          position: absolute;
+          left: 34px;
+          top: 0;
+          height: 1px;
+          transform-origin: 0 50%;
+          background: linear-gradient(90deg, rgba(147, 197, 253, 0.55), rgba(147, 197, 253, 0.12));
+          opacity: 0;
+        }
+        .en-node {
+          position: absolute;
+          top: -5px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(147, 197, 253, 0.85);
+          box-shadow: 0 0 10px rgba(37, 125, 255, 0.7);
+          opacity: 0;
+        }
+      </style>
+
+      <div data-hf-id="hf-3nhr" id="root" data-composition-id="energy" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-jvkq" id="en-anchor">
+          <div data-hf-id="hf-cu36" id="en-bloom"></div>
+          <div data-hf-id="hf-8vlm" id="en-rays"></div>
+          <div data-hf-id="hf-ul8l" id="en-waves">
+            <div data-hf-id="hf-us2e" id="en-wave-1" class="en-wave"></div>
+            <div data-hf-id="hf-qtyd" id="en-wave-2" class="en-wave"></div>
+            <div data-hf-id="hf-q2ak" id="en-wave-3" class="en-wave"></div>
+          </div>
+          <div data-hf-id="hf-ksqz" id="en-beams"></div>
+          <div data-hf-id="hf-q0zq" id="en-horizon"></div>
+          <div data-hf-id="hf-gero" id="en-core"></div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          const beamsHost = document.getElementById("en-beams");
+          const raysHost = document.getElementById("en-rays");
+
+          const pivot = (parent, angle, offset) => {
+            const el = document.createElement("div");
+            el.className = "en-pivot";
+            el.style.transform = "rotate(" + angle + "deg)";
+            parent.appendChild(el);
+            const inner = document.createElement("div");
+            inner.style.position = "absolute";
+            inner.style.left = "0";
+            inner.style.top = offset + "px";
+            el.appendChild(inner);
+            return inner;
+          };
+
+          // Cena 1: feixes discretos atravessam o quadro em direções alternadas.
+          const CROSS = [
+            { angle: -27, offset: -300, t: 0.06, dur: 0.6, alpha: 0.55 },
+            { angle: 153, offset: 210, t: 0.18, dur: 0.55, alpha: 0.42 },
+            { angle: -9, offset: 470, t: 0.3, dur: 0.5, alpha: 0.32 },
+            { angle: 197, offset: -560, t: 0.4, dur: 0.55, alpha: 0.32 },
+            { angle: 33, offset: 120, t: 0.5, dur: 0.48, alpha: 0.5 },
+          ];
+          const cross = CROSS.map((b) => {
+            const holder = pivot(beamsHost, b.angle, b.offset);
+            const el = document.createElement("div");
+            el.className = "en-beam en-cross";
+            holder.appendChild(el);
+            return Object.assign({ el }, b);
+          });
+
+          // Cena 2: feixes radiais que aceleram até o centro e colapsam nele.
+          const CONV = [
+            { angle: -158, t: 0.6 },
+            { angle: -104, t: 0.64 },
+            { angle: -32, t: 0.58 },
+            { angle: 18, t: 0.66 },
+            { angle: 82, t: 0.62 },
+            { angle: 138, t: 0.68 },
+          ];
+          const conv = CONV.map((b) => {
+            const holder = pivot(beamsHost, b.angle, 0);
+            const el = document.createElement("div");
+            el.className = "en-beam en-conv";
+            holder.appendChild(el);
+            return Object.assign({ el }, b);
+          });
+
+          // Raios de rede com nó na ponta (eco das linhas de circuito do logotipo).
+          const RAYS = [
+            { angle: -150, len: 470 },
+            { angle: -116, len: 400 },
+            { angle: -64, len: 420 },
+            { angle: -28, len: 520 },
+            { angle: 26, len: 500 },
+            { angle: 66, len: 390 },
+            { angle: 114, len: 420 },
+            { angle: 152, len: 480 },
+          ];
+          const rays = RAYS.map((r, i) => {
+            const holder = pivot(raysHost, r.angle, 0);
+            const line = document.createElement("div");
+            line.className = "en-ray";
+            line.style.width = r.len + "px";
+            const node = document.createElement("div");
+            node.className = "en-node";
+            node.style.left = 34 + r.len - 5 + "px";
+            holder.appendChild(line);
+            holder.appendChild(node);
+            return { line, node, delay: (i % 4) * 0.035 };
+          });
+
+          const tl = gsap.timeline({ paused: true });
+
+          // Ponto luminoso nasce no centro e "junta energia".
+          tl.fromTo("#en-core", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.42, ease: "power3.out" }, 0.04)
+            .fromTo("#en-bloom", { opacity: 0, scale: 0.25 }, { opacity: 0.35, scale: 0.55, duration: 0.6, ease: "sine.out" }, 0.06)
+            .to("#en-core", { scale: 0.75, duration: 0.5, ease: "sine.inOut" }, 0.5)
+            .to("#en-bloom", { opacity: 0.22, scale: 0.42, duration: 0.32, ease: "sine.inOut" }, 0.66);
+
+          cross.forEach((b) => {
+            tl.set(b.el, { opacity: b.alpha }, b.t).fromTo(
+              b.el,
+              { x: -1450 },
+              { x: 1450, duration: b.dur, ease: "power1.inOut" },
+              b.t
+            ).set(b.el, { opacity: 0 }, b.t + b.dur);
+          });
+
+          conv.forEach((b) => {
+            tl.set(b.el, { opacity: 0.85 }, b.t)
+              .fromTo(b.el, { x: -1250, scaleX: 1 }, { x: 0, duration: 0.42, ease: "power3.in" }, b.t)
+              .to(b.el, { scaleX: 0, opacity: 0, duration: 0.16, ease: "power2.in" }, b.t + 0.42);
+          });
+
+          // Impacto da convergência (~1,05 s): flash, horizonte e ondas de conexão.
+          tl.to("#en-core", { scale: 2.6, duration: 0.14, ease: "power2.out" }, 1.0)
+            .to("#en-core", { scale: 0.4, opacity: 0, duration: 0.44, ease: "power2.in" }, 1.15)
+            .to("#en-bloom", { opacity: 0.95, scale: 1.5, duration: 0.18, ease: "power2.out" }, 1.0)
+            .to("#en-bloom", { opacity: 0, scale: 2.4, duration: 0.7, ease: "power2.out" }, 1.18)
+            .fromTo("#en-horizon", { opacity: 1, scaleX: 0, scaleY: 1 }, { opacity: 1, scaleX: 1, duration: 0.26, ease: "expo.out" }, 1.04)
+            .to("#en-horizon", { opacity: 0, scaleY: 0.4, duration: 0.42, ease: "power1.in" }, 1.3);
+
+          ["#en-wave-1", "#en-wave-2", "#en-wave-3"].forEach((sel, i) => {
+            const t = 1.06 + i * 0.13;
+            // Opacidade e escala em tweens separados: antes do impacto a onda fica invisível.
+            tl.fromTo(sel, { opacity: 0 }, { opacity: 0.9 - i * 0.18, duration: 0.05, ease: "none" }, t)
+              .fromTo(sel, { scale: 0.03 }, { scale: 1 - i * 0.12, duration: 1.0, ease: "power3.out" }, t)
+              .to(sel, { opacity: 0, duration: 0.8, ease: "power1.in" }, t + 0.18);
+          });
+
+          rays.forEach((r) => {
+            const t = 1.1 + r.delay;
+            tl.fromTo(r.line, { opacity: 1, scaleX: 0 }, { scaleX: 1, duration: 0.42, ease: "power3.out" }, t)
+              .fromTo(r.node, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.22, ease: "power2.out" }, t + 0.3)
+              .to([r.line, r.node], { opacity: 0, duration: 0.4, ease: "power1.in" }, 1.6 + r.delay);
+          });
+
+          window.__timelines["energy"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

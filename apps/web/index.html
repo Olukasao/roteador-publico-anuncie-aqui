@@ -5,14 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="theme-color" content="#06142d" />
     <link rel="icon" type="image/x-icon" href="/brand/favicon.ico" />
+    <link rel="preload" href="/brand/logo-acessanet-splash.webp" as="image" type="image/webp" />
+    <link rel="preload" href="/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin />
     <title>AcessaNet Connect — Wi-Fi gratuito</title>
     <meta
       name="description"
       content="Conecte-se ao Wi-Fi gratuito AcessaNet em segundos."
     />
+    <!--
+      Tela da marca: aparece no primeiro instante em que o cliente abre o portal, antes
+      de qualquer JavaScript. O PortalIntro reaproveita estas mesmas classes por baixo do
+      vídeo, então a logo nunca depende do vídeo carregar ou do autoplay ser permitido.
+    -->
+    <style>
+      @font-face {
+        font-family: "Poppins";
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url("/fonts/poppins-400.woff2") format("woff2");
+      }
+      html, body { margin: 0; background: #06152d; }
+      .brand-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        padding: 24px;
+        background:
+          radial-gradient(75% 28% at 50% 46%, rgba(37, 125, 255, 0.26) 0%, rgba(17, 102, 189, 0.1) 45%, rgba(6, 21, 45, 0) 100%),
+          radial-gradient(70% 55% at 50% 0%, rgba(37, 125, 255, 0.22) 0%, rgba(6, 21, 45, 0) 70%),
+          radial-gradient(45% 35% at 85% 85%, rgba(147, 197, 253, 0.08) 0%, rgba(6, 21, 45, 0) 70%),
+          linear-gradient(180deg, #06152d 0%, #0a2250 55%, #06152d 100%);
+      }
+      .brand-splash__logo {
+        position: relative;
+        display: block;
+        width: min(74vw, 340px);
+        height: auto;
+      }
+      .brand-splash__tagline {
+        position: relative;
+        margin: 0;
+        font-family: "Poppins", system-ui, -apple-system, sans-serif;
+        font-size: 17px;
+        font-weight: 400;
+        letter-spacing: 0.01em;
+        color: rgba(234, 242, 255, 0.88);
+      }
+      .brand-splash__tagline b {
+        font-weight: 400;
+        color: #93c5fd;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="brand-splash" aria-label="AcessaNet">
+        <img class="brand-splash__logo" src="/brand/logo-acessanet-splash.webp" width="880" height="328" alt="AcessaNet" />
+        <p class="brand-splash__tagline">Conecte-se ao que <b>importa.</b></p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

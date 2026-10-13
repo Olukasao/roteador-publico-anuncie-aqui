@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <!-- Camada da marca: luz azul atrás do logotipo oficial (PNG original, sem alteração),
+         reflexo recortado pelo próprio logo, filete e a assinatura. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 400;
+          src: url("assets/fonts/poppins-400.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 500;
+          src: url("assets/fonts/poppins-500.woff2") format("woff2");
+        }
+        /* A camada sempre preenche o host (vertical ou horizontal): o runtime carimba o
+           data-width/height deste arquivo na raiz, então o tamanho é forçado aqui. */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden;
+        }
+        #br-anchor {
+          position: absolute;
+          left: 50%;
+          top: calc(50% - 40px);
+          width: 0;
+          height: 0;
+        }
+        /* Placa escura atrás da marca: dá leitura ao logo sobre o globo, sem esconder o 3D. */
+        #br-plate {
+          position: absolute;
+          left: -720px;
+          top: -470px;
+          width: 1440px;
+          height: 960px;
+          border-radius: 50%;
+          background: radial-gradient(
+            closest-side,
+            rgba(5, 19, 38, 0.9) 0%,
+            rgba(5, 19, 38, 0.7) 42%,
+            rgba(5, 19, 38, 0) 100%
+          );
+          opacity: 0;
+        }
+        #br-glow {
+          position: absolute;
+          left: -680px;
+          top: -380px;
+          width: 1360px;
+          height: 760px;
+          border-radius: 50%;
+          background: radial-gradient(
+            closest-side,
+            rgba(37, 125, 255, 0.42) 0%,
+            rgba(17, 102, 189, 0.2) 45%,
+            rgba(6, 21, 45, 0) 100%
+          );
+          opacity: 0;
+        }
+        #br-glow-core {
+          position: absolute;
+          left: -380px;
+          top: -150px;
+          width: 760px;
+          height: 300px;
+          border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(147, 197, 253, 0.2) 0%, rgba(147, 197, 253, 0) 100%);
+          opacity: 0;
+        }
+        #br-logo-wrap {
+          position: absolute;
+          left: -400px;
+          top: -149px;
+          width: 800px;
+          height: 298px;
+        }
+        #br-logo {
+          display: block;
+          width: 800px;
+          height: 298px;
+          opacity: 0;
+        }
+        #br-glint-mask {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          -webkit-mask-image: url("assets/logo-acessanet.png");
+          mask-image: url("assets/logo-acessanet.png");
+          -webkit-mask-size: 800px 298px;
+          mask-size: 800px 298px;
+        }
+        #br-glint {
+          position: absolute;
+          top: -60px;
+          left: 0;
+          width: 90px;
+          height: 420px;
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.6) 50%,
+            rgba(255, 255, 255, 0) 100%
+          );
+          opacity: 0;
+        }
+        #br-rule {
+          position: absolute;
+          left: -70px;
+          top: 196px;
+          width: 140px;
+          height: 1px;
+          background: linear-gradient(90deg, rgba(147, 197, 253, 0), rgba(147, 197, 253, 0.9), rgba(147, 197, 253, 0));
+          opacity: 0;
+        }
+        #br-tagline {
+          position: absolute;
+          left: -500px;
+          top: 222px;
+          width: 1000px;
+          text-align: center;
+          font-family: "Poppins", sans-serif;
+          font-weight: 400;
+          font-size: 46px;
+          line-height: 1.2;
+          letter-spacing: 0.01em;
+          color: #eaf2ff;
+          white-space: nowrap;
+        }
+        .br-word {
+          display: inline-block;
+          opacity: 0;
+        }
+        .br-accent {
+          color: #93c5fd;
+          font-weight: 500;
+        }
+      </style>
+
+      <div data-hf-id="hf-rcw0" id="root" data-composition-id="brand" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-m1lh" id="br-anchor">
+          <div data-hf-id="hf-pgpm" id="br-plate"></div>
+          <div data-hf-id="hf-q1e9" id="br-glow"></div>
+          <div data-hf-id="hf-p453" id="br-glow-core"></div>
+          <div data-hf-id="hf-zyxk" id="br-logo-wrap">
+            <img data-hf-id="hf-lwed" id="br-logo" src="assets/logo-acessanet.png" alt="AcessaNet">
+            <div data-hf-id="hf-whfb" id="br-glint-mask"><div data-hf-id="hf-s6lm" id="br-glint"></div></div>
+          </div>
+          <div data-hf-id="hf-l86o" id="br-rule"></div>
+          <div data-hf-id="hf-fmqs" id="br-tagline">
+            <span data-hf-id="hf-1mks" class="br-word">Conecte-se</span>
+            <span data-hf-id="hf-k7dy" class="br-word">ao</span>
+            <span data-hf-id="hf-ww1z" class="br-word">que</span>
+            <span data-hf-id="hf-itg3" class="br-word br-accent">importa.</span>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+
+          // Cena 4 (2,8 s): placa escura + luz azul, a marca entra em foco à frente do globo.
+          tl.fromTo("#br-plate", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.55, ease: "power2.out" }, 2.66)
+            .fromTo("#br-glow", { opacity: 0, scale: 0.6 }, { opacity: 0.85, scale: 1, duration: 0.6, ease: "power2.out" }, 2.72)
+            .fromTo("#br-glow-core", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, 2.78)
+            .fromTo(
+              "#br-logo-wrap",
+              { clipPath: "inset(50% -4% 50% -4%)", scale: 0.96 },
+              { clipPath: "inset(-4% -4% -4% -4%)", scale: 1, duration: 0.5, ease: "expo.out" },
+              2.8
+            )
+            .fromTo(
+              "#br-logo",
+              { opacity: 0, filter: "blur(12px) brightness(1.9)" },
+              { opacity: 1, filter: "blur(0px) brightness(1)", duration: 0.5, ease: "power3.out" },
+              2.8
+            )
+            .to("#br-logo-wrap", { scale: 1.025, duration: 0.58, ease: "sine.inOut" }, 3.32)
+            .fromTo("#br-glint", { opacity: 1, rotation: 18, x: -260 }, { opacity: 1, x: 1000, duration: 0.5, ease: "power2.inOut" }, 3.05)
+            .set("#br-glint", { opacity: 0 }, 3.56);
+
+          // Assinatura.
+          tl.fromTo("#br-rule", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.4, ease: "expo.out" }, 2.9)
+            .fromTo(
+              ".br-word",
+              { opacity: 0, y: 20, filter: "blur(8px)" },
+              { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.32, ease: "power3.out", stagger: 0.04 },
+              2.92
+            );
+
+          // Cena 5: fade-out suave, sobra só o fundo do login.
+          tl.to(["#br-glow", "#br-glow-core", "#br-plate"], { opacity: 0, duration: 0.36, ease: "power1.in" }, 3.56)
+            .to("#br-logo", { opacity: 0, filter: "blur(6px) brightness(1)", duration: 0.32, ease: "power2.in" }, 3.58)
+            .to(".br-word", { opacity: 0, y: -6, duration: 0.28, ease: "power2.in", stagger: 0.015 }, 3.58)
+            .to("#br-rule", { opacity: 0, scaleX: 0.4, duration: 0.28, ease: "power2.in" }, 3.58);
+
+          window.__timelines["brand"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

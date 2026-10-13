@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <!-- AcessaNet — intro "Global Data Globe" (horizontal, 1920×1080, 4 s). Three.js + GSAP, tudo local. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./assets/three/three.module.js",
+          "three/addons/": "./assets/three/addons/"
+        }
+      }
+    </script>
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/land-dots.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #06152d; }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        /* Mesmo fundo do PortalShell: o último frame emenda na tela de login. */
+        background:
+          radial-gradient(70% 55% at 50% 0%, rgba(37, 125, 255, 0.22) 0%, rgba(6, 21, 45, 0) 70%),
+          radial-gradient(45% 35% at 85% 85%, rgba(147, 197, 253, 0.08) 0%, rgba(6, 21, 45, 0) 70%),
+          linear-gradient(180deg, #06152d 0%, #0a2250 55%, #06152d 100%);
+      }
+      .layer { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-24jz" id="root" data-composition-id="acessanet-globe-intro" data-start="0" data-duration="4" data-fps="30" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-pyqv" id="globe" class="layer" data-composition-id="globe" data-composition-src="compositions/globe.html" data-start="0" data-duration="4" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div data-hf-id="hf-twqy" id="brand" class="layer" data-composition-id="brand" data-composition-src="compositions/brand.html" data-start="0" data-duration="4" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    </div>
+    <script>
+      // Cena 5: o canvas do globo (que já desenha o fundo do login) se dissolve no fundo CSS idêntico.
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#globe", { opacity: 1 }, { opacity: 0, duration: 0.38, ease: "power1.inOut" }, 3.54);
+      window.__timelines["acessanet-globe-intro"] = tl;
+    </script>
+  </body>
+</html>
