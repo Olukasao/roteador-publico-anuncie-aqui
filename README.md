@@ -11,9 +11,11 @@ visitantes, para o access point **Grandstream GWN7664ELR**.
 - ✅ Portal público `/wifi` completo (5 telas: boas-vindas, cadastro, conectando,
   conectado, erros) rodando sobre um `GrandstreamMockProvider` — **sem integração real
   com o access point ainda**
+- ✅ Backend inicial de cadastro, consentimentos e sessões (`apps/api`)
+- ✅ Integração somente leitura com o painel Marketing do Site AcessaNet
 - ⬜ Dashboard administrativo `/admin` (Fase 4)
 - ⬜ Editor visual do captive portal (Fase 5)
-- ⬜ Backend (Fastify + Prisma + PostgreSQL) (Fase 6)
+- ⬜ Migrar o banco de desenvolvimento para banco central de produção (Fase 6)
 - ⬜ Integração real Grandstream + FreeRADIUS (Fase 7-8) — depende de acesso ao
   equipamento físico e confirmação do modo de gerenciamento (local / GDMS / GWN
   Manager) e versão de firmware
@@ -42,8 +44,8 @@ npm install
 npm run dev          # sobe apps/web em http://localhost:5173/wifi
 ```
 
-Nenhuma variável de ambiente é obrigatória nesta fase — ver `.env.example` para o que
-será necessário a partir da Fase 6.
+O frontend e a API possuem arquivos `.env.example`. O desenho de produção para vários
+roteadores está em `docs/deployment/production-architecture.md`.
 
 ## Modo demonstração
 
